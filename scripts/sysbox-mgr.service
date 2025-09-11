@@ -1,0 +1,19 @@
+[Unit]
+Description=Sysbox Manager
+Documentation=https://github.com/nestybox/sysbox
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+ExecStart=/tmp/sysbox-mgr --data-root /dstack/persistent/sysbox-data
+ExecStop=/bin/kill -TERM $MAINPID
+Restart=on-failure
+RestartSec=5
+KillMode=process
+OOMScoreAdjust=-999
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
