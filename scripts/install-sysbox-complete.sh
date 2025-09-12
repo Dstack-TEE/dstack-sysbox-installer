@@ -30,7 +30,7 @@ log_error() {
 }
 
 # Helper function to run commands on host via nsenter
-hostrun() {
+host_run() {
     nsenter -t 1 -m -p -n "$@"
 }
 
@@ -39,18 +39,18 @@ check_existing() {
     log_info "Checking existing installation..."
 
     # Check if systemd services exist (in either /etc or /run)
-    if hostrun systemctl list-unit-files | grep -q "sysbox-mgr.service" ||
+    if host_run systemctl list-unit-files | grep -q "sysbox-mgr.service" ||
         [ -f /host/run/systemd/system/sysbox-mgr.service ] ||
         [ -f /host/etc/systemd/system/sysbox-mgr.service ]; then
         log_warning "Sysbox services already installed - skipping installation"
 
         # Show service status
         echo "Service status:"
-        hostrun systemctl status sysbox-mgr.service --no-pager 2>/dev/null | head -5 || true
-        hostrun systemctl status sysbox-fs.service --no-pager 2>/dev/null | head -5 || true
+        host_run systemctl status sysbox-mgr.service --no-pager 2>/dev/null | head -5 || true
+        host_run systemctl status sysbox-fs.service --no-pager 2>/dev/null | head -5 || true
 
         # Check if actually running
-        if hostrun systemctl is-active sysbox-mgr.service >/dev/null 2>&1; then
+        if host_run systemctl is-active sysbox-mgr.service >/dev/null 2>&1; then
             log_success "Sysbox is installed and running"
         else
             log_info "Sysbox is installed but not running. Start with:"
@@ -76,14 +76,14 @@ copy_binaries() {
     chmod +x /host/usr/bin/rsync /host/usr/bin/sysbox-*
 
     # Create symlinks for dependencies
-    hostrun ln -sf /usr/sbin/modprobe /usr/bin/modprobe 2>/dev/null || true
-    hostrun ln -sf /usr/sbin/iptables /usr/bin/iptables 2>/dev/null || true
+    host_run ln -sf /usr/sbin/modprobe /usr/bin/modprobe 2>/dev/null || true
+    host_run ln -sf /usr/sbin/iptables /usr/bin/iptables 2>/dev/null || true
 
     # Handle fusermount/fusermount3 (Alpine has fusermount3, sysbox expects fusermount)
-    if ! hostrun which fusermount >/dev/null 2>&1; then
-        if hostrun which fusermount3 >/dev/null 2>&1; then
+    if ! host_run which fusermount >/dev/null 2>&1; then
+        if host_run which fusermount3 >/dev/null 2>&1; then
             log_info "Creating symlink: fusermount -> fusermount3"
-            hostrun ln -sf /usr/bin/fusermount3 /usr/bin/fusermount
+            host_run ln -sf /usr/bin/fusermount3 /usr/bin/fusermount
         else
             log_warning "Neither fusermount nor fusermount3 found - FUSE operations may fail"
         fi
@@ -94,15 +94,15 @@ copy_binaries() {
 
 setup_subuid_subgid() {
     log_info "Setting up subuid/subgid..."
-    hostrun sh -c 'echo "sysbox:200000:65536" > /etc/subuid'
-    hostrun sh -c 'echo "sysbox:200000:65536" > /etc/subgid'
+    host_run sh -c 'echo "sysbox:200000:65536" > /etc/subuid'
+    host_run sh -c 'echo "sysbox:200000:65536" > /etc/subgid'
     log_success "Created subuid/subgid mappings"
 }
 
 # Setup /etc overlay and configuration
 setup_etc_overlay() {
     # Check if main overlay already exists
-    if hostrun mount | grep -q " /etc .*overlay"; then
+    if host_run mount | grep -q " /etc .*overlay"; then
         log_warning "/etc already has overlay mounted - skipping mount"
         return
     fi
@@ -110,38 +110,38 @@ setup_etc_overlay() {
     log_info "Setting up /etc overlay..."
 
     # Create volatile overlay directories for /etc
-    hostrun mkdir -p /var/volatile/overlay/etc/sysbox/upper /var/volatile/overlay/etc/sysbox/work
+    host_run mkdir -p /var/volatile/overlay/etc/sysbox/upper /var/volatile/overlay/etc/sysbox/work
 
     # Preserve wireguard config if it exists in volatile storage
-    if [ -f /host/var/volatile/overlay/etc/wireguard/upper/wg0.conf ]; then
+    if host_run [ -f /var/volatile/overlay/etc/wireguard/upper/wg0.conf ]; then
         log_info "Preserving existing wireguard configuration..."
-        mkdir -p /host/var/volatile/overlay/etc/sysbox/upper/wireguard
-        cp /host/var/volatile/overlay/etc/wireguard/upper/* /host/var/volatile/overlay/etc/sysbox/upper/wireguard/ 2>/dev/null || true
+        host_run mkdir -p /var/volatile/overlay/etc/sysbox/upper/wireguard
+        host_run bash -c 'cp /var/volatile/overlay/etc/wireguard/upper/* /var/volatile/overlay/etc/sysbox/upper/wireguard/ 2>/dev/null' || true
     fi
 
     # Preserve docker config if it exists in volatile storage
-    if [ -d /host/var/volatile/overlay/etc/docker/upper ]; then
+    if host_run [ -d /var/volatile/overlay/etc/docker/upper/daemon.json ]; then
         log_info "Preserving existing Docker configuration..."
-        mkdir -p /host/var/volatile/overlay/etc/sysbox/upper/docker
-        cp -r /host/var/volatile/overlay/etc/docker/upper/* /host/var/volatile/overlay/etc/sysbox/upper/docker/ 2>/dev/null || true
+        host_run mkdir -p /var/volatile/overlay/etc/sysbox/upper/docker
+        host_run bash -c 'cp -r /var/volatile/overlay/etc/docker/upper/* /var/volatile/overlay/etc/sysbox/upper/docker/ 2>/dev/null' || true
     fi
 
     # Unmount existing individual overlays (except /etc/users which should remain persistent)
     log_info "Unmounting individual overlays..."
-    hostrun umount /etc/wireguard 2>/dev/null || true
-    hostrun umount /etc/docker 2>/dev/null || true
+    host_run umount /etc/wireguard 2>/dev/null || true
+    host_run umount /etc/docker 2>/dev/null || true
 
     # Mount volatile /etc overlay
-    hostrun mount -t overlay overlay \
+    host_run mount -t overlay overlay \
         -o lowerdir=/etc,upperdir=/var/volatile/overlay/etc/sysbox/upper,workdir=/var/volatile/overlay/etc/sysbox/work \
         /etc
     log_success "Volatile /etc overlay mounted"
 
     # Remount /etc/users as persistent (if it exists) to override the volatile /etc mount
-    if [ -d /host/dstack/persistent/overlay/etc/users ]; then
+    if host_run [ -d /dstack/persistent/overlay/etc/users ]; then
         log_info "Remounting /etc/users as persistent overlay..."
-        hostrun mkdir -p /dstack/persistent/overlay/etc/users/upper /dstack/persistent/overlay/etc/users/work
-        hostrun mount -t overlay overlay \
+        host_run mkdir -p /dstack/persistent/overlay/etc/users/upper /dstack/persistent/overlay/etc/users/work
+        host_run mount -t overlay overlay \
             -o lowerdir=/etc/users,upperdir=/dstack/persistent/overlay/etc/users/upper,workdir=/dstack/persistent/overlay/etc/users/work \
             /etc/users
         log_success "/etc/users mounted as persistent overlay"
@@ -150,33 +150,28 @@ setup_etc_overlay() {
 
 # Configure Docker runtime
 configure_docker() {
-    log_info "Configuring Docker runtime..."
-
-    # TODO: Implement proper JSON merging to preserve existing Docker configuration
-    # Currently overwrites daemon.json - should merge with existing runtimes/settings
+    log_info "Configuring Docker runtime using Sysbox's docker-cfg script..."
 
     # Backup existing daemon.json if it exists
-    if hostrun [ -f /etc/docker/daemon.json ]; then
-        hostrun cp /etc/docker/daemon.json /etc/docker/daemon.json.backup
-        log_info "Backed up existing Docker daemon.json (will be overwritten)"
+    if host_run [ -f /etc/docker/daemon.json ]; then
+        host_run cp /etc/docker/daemon.json /etc/docker/daemon.json.backup
+        log_info "Backed up existing Docker daemon.json"
     fi
 
-    hostrun tee /etc/docker/daemon.json >/dev/null <<'DOCKEREOF'
-{
-  "log-driver": "json-file",
-  "log-opts": {
-    "max-size": "100m",
-    "max-file": "10"
-  },
-  "runtimes": {
-    "sysbox-runc": {
-      "path": "/usr/bin/sysbox-runc"
-    }
-  }
-}
-DOCKEREOF
+    # Use Sysbox's official docker-cfg script to configure Docker
+    cp /usr/local/bin/sysbox-docker-cfg /usr/bin/
+    if host_run bash /usr/bin/sysbox-docker-cfg --sysbox-runtime=enable; then
+        log_success "Docker configuration updated with Sysbox runtime"
+    else
+        log_error "Failed to configure Docker with docker-cfg script"
+        if host_run [ -f /etc/docker/daemon.json.backup ]; then
+            host_run mv /etc/docker/daemon.json.backup /etc/docker/daemon.json
+            log_info "Restored backup Docker configuration"
+        fi
+        return 1
+    fi
 
-    log_success "Docker configuration updated"
+    log_success "Docker configuration completed"
 }
 
 # Create systemd services
@@ -184,7 +179,7 @@ create_systemd_services() {
     log_info "Creating systemd services..."
 
     # Use /run/systemd/system for runtime units (doesn't require persistent storage)
-    hostrun mkdir -p /run/systemd/system
+    host_run mkdir -p /run/systemd/system
 
     # Copy service files from container to host runtime directory
     cp /usr/local/share/sysbox-mgr.service /host/run/systemd/system/
@@ -204,7 +199,7 @@ create_systemd_services() {
     log_success "Service files copied to /run/systemd/system/"
 
     # Reload systemd to pick up new service files
-    hostrun systemctl daemon-reload
+    host_run systemctl daemon-reload
 
     log_success "Systemd services created (transient until reboot)"
     log_info "Services: sysbox-mgr, sysbox-fs"
@@ -215,20 +210,20 @@ start_sysbox() {
     log_info "Starting Sysbox services..."
 
     # Create data directory
-    hostrun mkdir -p /dstack/persistent/sysbox-data
+    host_run mkdir -p /dstack/persistent/sysbox-data
 
     # Start services in order
     log_info "Starting Sysbox manager..."
-    hostrun systemctl start sysbox-mgr.service
+    host_run systemctl start sysbox-mgr.service
     sleep 3
 
     log_info "Starting Sysbox filesystem..."
-    hostrun systemctl start sysbox-fs.service
+    host_run systemctl start sysbox-fs.service
     sleep 2
 
     # Verify services are running
-    if hostrun systemctl is-active sysbox-mgr.service >/dev/null &&
-        hostrun systemctl is-active sysbox-fs.service >/dev/null; then
+    if host_run systemctl is-active sysbox-mgr.service >/dev/null &&
+        host_run systemctl is-active sysbox-fs.service >/dev/null; then
         log_success "Sysbox services started successfully"
     else
         log_warning "Some services may not have started correctly"
@@ -245,8 +240,8 @@ show_status() {
     echo "=========================================="
     echo
     echo "📊 Status:"
-    echo "  • Sysbox Manager: $(hostrun systemctl is-active sysbox-mgr.service)"
-    echo "  • Sysbox FS:      $(hostrun systemctl is-active sysbox-fs.service)"
+    echo "  • Sysbox Manager: $(host_run systemctl is-active sysbox-mgr.service)"
+    echo "  • Sysbox FS:      $(host_run systemctl is-active sysbox-fs.service)"
     echo "  • Docker Runtime: Configured (restart required)"
     echo
     echo -e "${YELLOW}⚠️  IMPORTANT: Restart Docker to enable sysbox-runc runtime:${NC}"

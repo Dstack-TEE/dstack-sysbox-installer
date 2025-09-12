@@ -66,6 +66,7 @@ COPY --from=builder /build/rsync-3.2.7/rsync /usr/local/bin/rsync
 COPY --from=builder /build/sysbox-install/sysbox-runc /usr/local/bin/sysbox-runc
 COPY --from=builder /build/sysbox-install/sysbox-mgr /usr/local/bin/sysbox-mgr
 COPY --from=builder /build/sysbox-install/sysbox-fs /usr/local/bin/sysbox-fs
+COPY --from=builder /build/sysbox/scr/docker-cfg /usr/local/bin/sysbox-docker-cfg
 
 # Copy scripts and service files
 COPY scripts/install-sysbox-complete.sh /usr/local/bin/install-sysbox-complete.sh

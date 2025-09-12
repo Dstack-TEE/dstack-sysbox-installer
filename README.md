@@ -2,16 +2,6 @@
 
 A Docker-based installer for [Sysbox](https://github.com/nestybox/sysbox) on read-only dstack systems.
 
-## Features
-
-- 🚀 **Single-command installation** - One Docker run command installs everything
-- 🔒 **Source-built** - Builds Sysbox from verified Git source (v0.6.7)
-- ✅ **SHA256 verified** - All downloads verified with checksums
-- 🔄 **Smart overlay handling** - Preserves existing /etc configurations
-- 📋 **Systemd integration** - Installs proper systemd services for Sysbox daemons
-- 🔍 **Installation detection** - Checks for existing installations
-- 🧪 **Built-in testing** - Verifies installation with basic and Docker-in-Docker tests
-
 ## Quick Start
 
 ### Build the Installer
@@ -24,7 +14,7 @@ chmod +x build.sh
 
 ### Install Sysbox
 
-**Single command installation:**
+**Single command installation in a CVM:**
 ```bash
 docker run --rm --privileged --pid=host --net=host -v /:/host \
   sysbox-installer:latest
@@ -33,9 +23,9 @@ docker run --rm --privileged --pid=host --net=host -v /:/host \
 That's it! The installer will:
 - Check for existing installations
 - Build and install Sysbox from source
-- Handle /etc overlay mount complexities
-- Configure Docker runtime
-- Create and start systemd services
+- Handle /etc volatile overlay mount preserving configs
+- Configure Docker runtime using Sysbox's official script
+- Create transient systemd services and start daemons
 
 ## Manual Steps (if needed)
 
@@ -101,14 +91,13 @@ installer/
 
 ### What the Installer Does
 
-1. **Checks existing installation** - Prompts before overwriting
+1. **Checks existing installation** - Detects and reports existing Sysbox installations
 2. **Copies binaries** - Places Sysbox binaries in `/usr/bin` (writable location)
-3. **Sets up /etc overlay** - Creates persistent overlay preserving existing configs
-4. **Creates symlinks** - Links rsync, modprobe, iptables for Sysbox requirements
-5. **Configures Docker** - Adds sysbox-runc runtime to Docker daemon
-6. **Creates systemd services** - Installs proper service files with dependencies
-7. **Starts services** - Enables and starts Sysbox daemons
-8. **Tests installation** - Verifies basic and Docker-in-Docker functionality
+3. **Sets up /etc overlay** - Creates volatile overlay preserving existing configs (WireGuard, Docker)
+4. **Creates symlinks** - Links fusermount, modprobe, iptables for Sysbox requirements
+5. **Configures Docker** - Uses Sysbox's official docker-cfg script to properly merge runtime configuration
+6. **Creates systemd services** - Installs transient service files in `/run/systemd/system`
+7. **Starts services** - Starts Sysbox manager and filesystem daemons
 
 ### Data Locations
 
@@ -144,8 +133,9 @@ docker run --runtime=sysbox-runc --rm alpine echo "Test successful"
 ```bash
 systemctl stop sysbox-mgr sysbox-fs
 systemctl disable sysbox-mgr sysbox-fs
-rm -f /etc/systemd/system/sysbox-*.service
-umount /etc  # If overlay mounted
+rm -f /run/systemd/system/sysbox-*.service
+systemctl daemon-reload
+umount /etc  # If volatile overlay mounted
 rm -rf /dstack/persistent/sysbox-*
 ```
 
