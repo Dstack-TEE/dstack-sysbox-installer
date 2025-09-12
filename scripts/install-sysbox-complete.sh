@@ -92,28 +92,60 @@ copy_binaries() {
     log_success "Binaries copied and dependencies linked"
 }
 
-# Setup /etc overlay and configuration
-setup_etc_overlay() {
-    log_info "Setting up /etc overlay..."
-
-    # Create persistent overlay directories
-    hostrun mkdir -p /dstack/persistent/sysbox-etc-overlay/upper /dstack/persistent/sysbox-etc-overlay/work
-
-    # Check if main overlay already exists
-    if hostrun mount | grep -q "/etc.*overlay.*sysbox-etc-overlay"; then
-        log_warning "/etc already has sysbox overlay mounted"
-    else
-        # Mount main /etc overlay
-        hostrun mount -t overlay overlay \
-            -o lowerdir=/etc,upperdir=/dstack/persistent/sysbox-etc-overlay/upper,workdir=/dstack/persistent/sysbox-etc-overlay/work \
-            /etc
-        log_success "Main /etc overlay mounted"
-    fi
-
-    # Create subuid/subgid
+setup_subuid_subgid() {
+    log_info "Setting up subuid/subgid..."
     hostrun sh -c 'echo "sysbox:200000:65536" > /etc/subuid'
     hostrun sh -c 'echo "sysbox:200000:65536" > /etc/subgid'
     log_success "Created subuid/subgid mappings"
+}
+
+# Setup /etc overlay and configuration
+setup_etc_overlay() {
+    # Check if main overlay already exists
+    if hostrun mount | grep -q " /etc .*overlay"; then
+        log_warning "/etc already has overlay mounted - skipping mount"
+        return
+    fi
+
+    log_info "Setting up /etc overlay..."
+
+    # Create volatile overlay directories for /etc
+    hostrun mkdir -p /var/volatile/overlay/etc/sysbox/upper /var/volatile/overlay/etc/sysbox/work
+
+    # Preserve wireguard config if it exists in volatile storage
+    if [ -f /host/var/volatile/overlay/etc/wireguard/upper/wg0.conf ]; then
+        log_info "Preserving existing wireguard configuration..."
+        mkdir -p /host/var/volatile/overlay/etc/sysbox/upper/wireguard
+        cp /host/var/volatile/overlay/etc/wireguard/upper/* /host/var/volatile/overlay/etc/sysbox/upper/wireguard/ 2>/dev/null || true
+    fi
+
+    # Preserve docker config if it exists in volatile storage
+    if [ -d /host/var/volatile/overlay/etc/docker/upper ]; then
+        log_info "Preserving existing Docker configuration..."
+        mkdir -p /host/var/volatile/overlay/etc/sysbox/upper/docker
+        cp -r /host/var/volatile/overlay/etc/docker/upper/* /host/var/volatile/overlay/etc/sysbox/upper/docker/ 2>/dev/null || true
+    fi
+
+    # Unmount existing individual overlays (except /etc/users which should remain persistent)
+    log_info "Unmounting individual overlays..."
+    hostrun umount /etc/wireguard 2>/dev/null || true
+    hostrun umount /etc/docker 2>/dev/null || true
+
+    # Mount volatile /etc overlay
+    hostrun mount -t overlay overlay \
+        -o lowerdir=/etc,upperdir=/var/volatile/overlay/etc/sysbox/upper,workdir=/var/volatile/overlay/etc/sysbox/work \
+        /etc
+    log_success "Volatile /etc overlay mounted"
+
+    # Remount /etc/users as persistent (if it exists) to override the volatile /etc mount
+    if [ -d /host/dstack/persistent/overlay/etc/users ]; then
+        log_info "Remounting /etc/users as persistent overlay..."
+        hostrun mkdir -p /dstack/persistent/overlay/etc/users/upper /dstack/persistent/overlay/etc/users/work
+        hostrun mount -t overlay overlay \
+            -o lowerdir=/etc/users,upperdir=/dstack/persistent/overlay/etc/users/upper,workdir=/dstack/persistent/overlay/etc/users/work \
+            /etc/users
+        log_success "/etc/users mounted as persistent overlay"
+    fi
 }
 
 # Configure Docker runtime
@@ -231,7 +263,6 @@ show_status() {
     echo
     echo "📁 Data Location:"
     echo "  • Sysbox data: /dstack/persistent/sysbox-data"
-    echo "  • Overlay data: /dstack/persistent/sysbox-etc-overlay"
     echo
 }
 
@@ -240,6 +271,7 @@ main() {
     check_existing
     copy_binaries
     setup_etc_overlay
+    setup_subuid_subgid
     configure_docker
     create_systemd_services
     start_sysbox

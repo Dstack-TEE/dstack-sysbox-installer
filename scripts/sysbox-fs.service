@@ -6,7 +6,7 @@ Requires=sysbox-mgr.service
 
 [Service]
 Type=simple
-ExecStart=/tmp/sysbox-fs
+ExecStart=/usr/bin/sysbox-fs
 ExecStop=/bin/kill -TERM $MAINPID
 Restart=on-failure
 RestartSec=5

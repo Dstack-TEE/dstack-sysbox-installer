@@ -102,7 +102,7 @@ installer/
 ### What the Installer Does
 
 1. **Checks existing installation** - Prompts before overwriting
-2. **Copies binaries** - Places Sysbox binaries in `/tmp/` (writable location)
+2. **Copies binaries** - Places Sysbox binaries in `/usr/bin` (writable location)
 3. **Sets up /etc overlay** - Creates persistent overlay preserving existing configs
 4. **Creates symlinks** - Links rsync, modprobe, iptables for Sysbox requirements
 5. **Configures Docker** - Adds sysbox-runc runtime to Docker daemon
@@ -113,8 +113,7 @@ installer/
 ### Data Locations
 
 - **Sysbox data**: `/dstack/persistent/sysbox-data`
-- **Overlay data**: `/dstack/persistent/sysbox-etc-overlay`
-- **Binaries**: `/tmp/sysbox-*` and `/tmp/rsync-static`
+- **Binaries**: `/usr/bin`
 
 ### Security
 

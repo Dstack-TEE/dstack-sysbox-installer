@@ -70,8 +70,7 @@ COPY --from=builder /build/sysbox-install/sysbox-fs /usr/local/bin/sysbox-fs
 # Copy scripts and service files
 COPY scripts/install-sysbox-complete.sh /usr/local/bin/install-sysbox-complete.sh
 COPY scripts/verify-downloads.sh /usr/local/bin/verify-downloads.sh
-COPY scripts/sysbox-etc-overlay.service /usr/local/share/sysbox-etc-overlay.service
-COPY scripts/sysbox-mgr.service /usr/local/share/sysbox-mgr.service  
+COPY scripts/sysbox-mgr.service /usr/local/share/sysbox-mgr.service
 COPY scripts/sysbox-fs.service /usr/local/share/sysbox-fs.service
 
 # Make everything executable
