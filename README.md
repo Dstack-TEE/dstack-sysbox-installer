@@ -1,12 +1,12 @@
 # Sysbox Installer for dstack
 
-A complete Docker-based installer for [Sysbox](https://github.com/nestybox/sysbox) on read-only dstack systems.
+A Docker-based installer for [Sysbox](https://github.com/nestybox/sysbox) on read-only dstack systems.
 
 ## Features
 
 - 🚀 **Single-command installation** - One Docker run command installs everything
 - 🔒 **Source-built** - Builds Sysbox from verified Git source (v0.6.7)
-- ✅ **SHA256 verified** - All downloads verified with checksums  
+- ✅ **SHA256 verified** - All downloads verified with checksums
 - 🔄 **Smart overlay handling** - Preserves existing /etc configurations
 - 📋 **Systemd integration** - Installs proper systemd services for Sysbox daemons
 - 🔍 **Installation detection** - Checks for existing installations
@@ -32,12 +32,10 @@ docker run --rm --privileged --pid=host --net=host -v /:/host \
 
 That's it! The installer will:
 - Check for existing installations
-- Build and install Sysbox from source  
+- Build and install Sysbox from source
 - Handle /etc overlay mount complexities
 - Configure Docker runtime
 - Create and start systemd services
-- Test the installation
-- Show final status
 
 ## Manual Steps (if needed)
 
@@ -67,7 +65,7 @@ docker run --runtime=sysbox-runc -it ubuntu bash
 # Docker-in-Docker
 docker run --runtime=sysbox-runc -d --name docker-container docker:dind
 
-# Kubernetes-in-Docker  
+# Kubernetes-in-Docker
 docker run --runtime=sysbox-runc -d --name k8s-node kindest/node:latest
 ```
 
@@ -106,7 +104,7 @@ installer/
 1. **Checks existing installation** - Prompts before overwriting
 2. **Copies binaries** - Places Sysbox binaries in `/tmp/` (writable location)
 3. **Sets up /etc overlay** - Creates persistent overlay preserving existing configs
-4. **Creates symlinks** - Links rsync, modprobe, iptables for Sysbox requirements  
+4. **Creates symlinks** - Links rsync, modprobe, iptables for Sysbox requirements
 5. **Configures Docker** - Adds sysbox-runc runtime to Docker daemon
 6. **Creates systemd services** - Installs proper service files with dependencies
 7. **Starts services** - Enables and starts Sysbox daemons
@@ -114,7 +112,7 @@ installer/
 
 ### Data Locations
 
-- **Sysbox data**: `/dstack/persistent/sysbox-data`  
+- **Sysbox data**: `/dstack/persistent/sysbox-data`
 - **Overlay data**: `/dstack/persistent/sysbox-etc-overlay`
 - **Binaries**: `/tmp/sysbox-*` and `/tmp/rsync-static`
 
