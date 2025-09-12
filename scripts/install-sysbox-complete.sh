@@ -71,12 +71,11 @@ check_existing() {
 copy_binaries() {
     log_info "Copying Sysbox binaries to host..."
 
-    cp /usr/local/bin/rsync /host/tmp/rsync-static
-    cp /usr/local/bin/sysbox-* /host/tmp/
-    chmod +x /host/tmp/rsync-static /host/tmp/sysbox-*
+    cp /usr/local/bin/rsync /host/usr/bin/
+    cp /usr/local/bin/sysbox-* /host/usr/bin/
+    chmod +x /host/usr/bin/rsync /host/usr/bin/sysbox-*
 
     # Create symlinks for dependencies
-    hostrun ln -sf /tmp/rsync-static /usr/bin/rsync 2>/dev/null || true
     hostrun ln -sf /usr/sbin/modprobe /usr/bin/modprobe 2>/dev/null || true
     hostrun ln -sf /usr/sbin/iptables /usr/bin/iptables 2>/dev/null || true
 
@@ -139,7 +138,7 @@ configure_docker() {
   },
   "runtimes": {
     "sysbox-runc": {
-      "path": "/tmp/sysbox-runc"
+      "path": "/usr/bin/sysbox-runc"
     }
   }
 }
