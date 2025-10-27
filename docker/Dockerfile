@@ -77,11 +77,15 @@ COPY scripts/sysbox-fs.service /usr/local/share/sysbox-fs.service
 # Make everything executable
 RUN chmod +x /usr/local/bin/*
 
+# Build metadata arguments (final stage)
+ARG DSTACK_REV
+
 # Create build info
 RUN echo "Sysbox Installer Image" > /usr/local/share/BUILD_INFO && \
     echo "Built: $(date)" >> /usr/local/share/BUILD_INFO && \
     echo "Sysbox: $(/usr/local/bin/sysbox-mgr --version | head -1)" >> /usr/local/share/BUILD_INFO && \
-    echo "rsync: $(/usr/local/bin/rsync --version | head -1)" >> /usr/local/share/BUILD_INFO
+    echo "rsync: $(/usr/local/bin/rsync --version | head -1)" >> /usr/local/share/BUILD_INFO && \
+    echo "Git Revision: ${DSTACK_REV:-unknown}" >> /usr/local/share/BUILD_INFO
 
 WORKDIR /workspace
 

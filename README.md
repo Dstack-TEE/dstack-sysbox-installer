@@ -146,6 +146,44 @@ rm -rf /dstack/persistent/sysbox-*
 - dstack system with ZFS persistent storage
 - systemd for service management
 
+## Release and Verification
+
+### Creating a Release
+
+Releases are automated via GitHub Actions with sigstore attestation:
+
+1. Tag a new version:
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+
+2. The workflow will automatically:
+   - Build the Docker image
+   - Push to Docker Hub
+   - Generate sigstore attestation
+   - Create a GitHub release
+
+### Verifying Image Attestation
+
+All released images are signed with sigstore for supply chain security:
+
+```bash
+# Install cosign
+curl -O -L "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64"
+sudo mv cosign-linux-amd64 /usr/local/bin/cosign
+sudo chmod +x /usr/local/bin/cosign
+
+# Verify the image (replace VERSION and DIGEST)
+cosign verify-attestation \
+  --type https://slsa.dev/provenance/v1 \
+  --certificate-identity-regexp "^https://github.com/YOUR_ORG/dstack-sysbox-installer/.github/workflows/release.yml@refs/tags/vVERSION$" \
+  --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+  docker.io/YOUR_ORG/dstack-sysbox-installer@sha256:DIGEST
+```
+
+You can also verify on [Sigstore Search](https://search.sigstore.dev/).
+
 ## Support
 
 For issues with the installer, check:
